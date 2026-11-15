@@ -1,0 +1,74 @@
+name: Provision 3-Node K8s Cluster (Ansible)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provision-cluster:
+    name: Setup 3-Node Kubernetes Cluster
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Connect to Tailscale (if using private mesh)
+        uses: tailscale/github-action@v3
+        continue-on-error: true
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Ansible & Collections
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Configure SSH and Run Ansible Cluster Setup
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SERVER_SSH_PASSPHRASE: ${{ secrets.SERVER_SSH_PASSPHRASE }}
+          ANSIBLE_BECOME_PASSWORD: ${{ secrets.SERVER_SUDO_PASSWORD }}
+        run: |
+          set -eu
+          export ANSIBLE_CONFIG="$GITHUB_WORKSPACE/ansible/ansible.cfg"
+          cd "$GITHUB_WORKSPACE/ansible"
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          eval "$(ssh-agent -s)"
+
+          cat > ~/.ssh/askpass.sh <<'EOF'
+          #!/bin/sh
+          printf '%s\n' "$SERVER_SSH_PASSPHRASE"
+          EOF
+
+          chmod 700 ~/.ssh/askpass.sh
+
+          export SSH_ASKPASS="$HOME/.ssh/askpass.sh"
+          export SSH_ASKPASS_REQUIRE=force
+          export DISPLAY=:0
+
+          setsid -w ssh-add ~/.ssh/deploy_key </dev/null
+
+          ansible-playbook \
+            -i inventory/hosts.yml \
+            playbooks/setup_k8s_cluster.yml \
+            -e "ansible_become_password=${ANSIBLE_BECOME_PASSWORD}"

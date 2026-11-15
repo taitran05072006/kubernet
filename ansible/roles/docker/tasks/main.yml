@@ -1,0 +1,26 @@
+---
+- name: INSTALL docker packages
+  ansible.builtin.apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+    lock_timeout: 600
+
+- name: ENABLE docker service
+  ansible.builtin.systemd:
+    name: docker
+    enabled: yes
+    state: started
+
+- name: Add SSH user to docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+
+    
+- name: Verify docker installation
+  ansible.builtin.command: docker --version
+  register: docker_version
+  changed_when: false

@@ -1,0 +1,17 @@
+{{- if .Values.frontend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "baitaplon.fullname" . }}-frontend
+  labels:
+    {{- include "baitaplon.labels" . | nindent 4 }}
+    app: frontend
+spec:
+  type: {{ .Values.frontend.service.type }}
+  ports:
+    - port: {{ .Values.frontend.service.port }}
+      targetPort: {{ .Values.frontend.service.port }}
+      name: http
+  selector:
+    app: frontend
+{{- end }}

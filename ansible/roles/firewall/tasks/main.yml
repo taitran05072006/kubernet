@@ -1,0 +1,22 @@
+---
+- name: INSTALL UFW
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: yes
+    cache_valid_time: 3600
+    lock_timeout: 600
+
+- name: INSTALL COMMON PACKAGES
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ firewall_allowed_ports }}"
+
+- name: Enable UFW with default deny incoming and allow outgoing
+  community.general.ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+ 

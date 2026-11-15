@@ -1,0 +1,22 @@
+CREATE TABLE task (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'TODO',
+    priority VARCHAR(50) NOT NULL DEFAULT 'MEDIUM',
+    due_date DATETIME(6),
+    project_id BIGINT,
+    category_id BIGINT,
+    assignee_id BIGINT,
+    create_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id),
+    CONSTRAINT fk_task_project FOREIGN KEY (project_id) REFERENCES project(id),
+    CONSTRAINT fk_task_category FOREIGN KEY (category_id) REFERENCES categories(id),
+    CONSTRAINT fk_task_assignee FOREIGN KEY (assignee_id) REFERENCES users(id),
+    INDEX idx_task_project (project_id),
+    INDEX idx_task_category (category_id),
+    INDEX idx_task_assignee (assignee_id),
+    INDEX idx_task_status (status),
+    INDEX idx_task_priority (priority),
+    INDEX idx_task_due_date (due_date)
+) ENGINE=InnoDB;

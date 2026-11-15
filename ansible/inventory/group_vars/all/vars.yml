@@ -1,0 +1,26 @@
+---
+timezone: Asia/Ho_Chi_Minh
+
+app_dir: /opt/ontap
+
+common_packages:
+  - git
+  - curl
+  - ca-certificates
+  - htop
+  - jq
+  - unzip
+  - vim
+  - iptables
+  - open-iscsi
+  - nfs-common
+
+# Kubernetes (K3s) Cluster configuration
+k3s_version: "v1.31.2+k3s1"
+k8s_server_host: "100.104.31.2"
+k8s_server_api_port: 6443
+
+# GitOps & Networking Addons
+argocd_namespace: "argocd"
+app_repo_url: "https://github.com/taitran05072006/baitaplon.git"
+gitops_manifest_path: "kubernet"

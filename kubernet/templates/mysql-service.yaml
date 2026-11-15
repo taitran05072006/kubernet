@@ -1,0 +1,17 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  labels:
+    {{- include "baitaplon.labels" . | nindent 4 }}
+    app: mysql
+spec:
+  type: {{ .Values.mysql.service.type }}
+  ports:
+    - port: {{ .Values.mysql.service.port }}
+      targetPort: {{ .Values.mysql.service.port }}
+      name: mysql
+  selector:
+    app: mysql
+{{- end }}

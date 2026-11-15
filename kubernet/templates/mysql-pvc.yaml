@@ -1,0 +1,15 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "baitaplon.fullname" . }}-mysql-pvc
+  labels:
+    {{- include "baitaplon.labels" . | nindent 4 }}
+    app: mysql
+spec:
+  accessModes:
+    - {{ .Values.mysql.storage.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.mysql.storage.size }}
+{{- end }}

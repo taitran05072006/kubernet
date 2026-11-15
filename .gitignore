@@ -1,0 +1,12 @@
+.env
+.env.*
+
+frontend/node_modules
+frontend/dist
+backend/target
+demo/target
+**/target/
+
+.DS_Store
+
+taitran.txt

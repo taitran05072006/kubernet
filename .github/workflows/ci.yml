@@ -1,0 +1,183 @@
+name: taitran-ci-cd
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "kubernet/**"
+      - "README.md"
+      - "ansible/**"
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Tránh nhiều workflow cùng chạy đồng thời
+concurrency:
+  group: taitran-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ==========================================
+  # JOB 1: TEST BACKEND & FRONTEND
+  # ==========================================
+  test:
+    name: Test backend and build frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: baitaplon
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -p\"$MYSQL_ROOT_PASSWORD\""
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+          --health-start-period=30s
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # Setup Java
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+          cache-dependency-path: demo/pom.xml
+
+      # Backend tests
+      - name: Test backend
+        working-directory: ./demo
+        env:
+          DB_HOST: localhost
+          DB_PORT: 3306
+          DB_NAME: baitaplon
+          DB_USERNAME: root
+          DB_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B test
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # Frontend build
+      - name: Build frontend
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npm run build
+
+  # ==========================================
+  # JOB 2: BUILD AND PUSH DOCKER IMAGES
+  # ==========================================
+  public:
+    name: Build and push Docker images
+    needs: test
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Backend image
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./demo
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/backend:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      # Frontend image
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/frontend:${{ github.sha }}
+            ${{ secrets.DOCKER_USERNAME }}/frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  # ==========================================
+  # JOB 3: GITOPS UPDATE (K8S MANIFESTS)
+  # Argo CD sẽ tự động phát hiện commit này và đồng bộ lên cụm Kubernetes
+  # ==========================================
+  gitops:
+    name: Update GitOps manifests for Argo CD
+    needs: public
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Git repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update image tag in Helm values
+        run: |
+          NEW_TAG="${{ github.sha }}"
+          
+          # Cập nhật image tag trong kubernet/values.yaml
+          sed -i "s|tag: .* # backend-tag|tag: ${NEW_TAG} # backend-tag|g" kubernet/values.yaml
+          sed -i "s|tag: .* # frontend-tag|tag: ${NEW_TAG} # frontend-tag|g" kubernet/values.yaml
+
+      - name: Commit and push changes to Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add kubernet/values.yaml
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore(gitops): update Helm image tags to ${{ github.sha }} [skip ci]"
+            git push origin main
+          fi

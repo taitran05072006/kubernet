@@ -1,0 +1,33 @@
+---
+# ==============================================================================
+# PLAYBOOK: SETUP 3-NODE KUBERNETES CLUSTER (1 SERVER / CONTROL PLANE + 2 AGENTS)
+# ==============================================================================
+
+# 1. Chuẩn bị môi trường trên toàn bộ 3 máy (Server & Agents)
+- name: Prepare common OS and network dependencies on all cluster nodes
+  hosts: k8s_cluster
+  become: true
+  roles:
+    - common
+    - k8s_common
+
+# 2. Khởi tạo máy Server (Control Plane)
+- name: Initialize Kubernetes Control Plane on Server
+  hosts: control_plane
+  become: true
+  roles:
+    - k8s_server
+
+# 3. Kết nối 2 máy Agent (Worker Nodes) vào cụm
+- name: Join Worker Nodes (Agents) to Kubernetes Cluster
+  hosts: worker_nodes
+  become: true
+  roles:
+    - k8s_agent
+
+# 4. Cài đặt các Addon cốt lõi: Nginx Ingress Controller & Argo CD (GitOps)
+- name: Install Nginx Ingress Controller & Argo CD GitOps
+  hosts: control_plane
+  become: true
+  roles:
+    - k8s_addons

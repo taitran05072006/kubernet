@@ -1,0 +1,39 @@
+---
+- name: Wait for all nodes to be Ready in Kubernetes
+  ansible.builtin.shell: |
+    /usr/local/bin/kubectl get nodes --no-headers | grep -v "Ready" || true
+  register: node_check
+  until: node_check.stdout == ""
+  retries: 30
+  delay: 10
+  changed_when: false
+
+- name: Deploy Nginx Ingress Controller
+  ansible.builtin.shell: |
+    /usr/local/bin/kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/baremetal/deploy.yaml
+  register: ingress_deploy
+  changed_when: "'created' in ingress_deploy.stdout or 'configured' in ingress_deploy.stdout"
+
+- name: Create namespace for Argo CD
+  ansible.builtin.shell: |
+    /usr/local/bin/kubectl create namespace {{ argocd_namespace }} --dry-run=client -o yaml | /usr/local/bin/kubectl apply -f -
+  register: argocd_ns
+  changed_when: "'created' in argocd_ns.stdout"
+
+- name: Deploy Argo CD manifests
+  ansible.builtin.shell: |
+    /usr/local/bin/kubectl apply -n {{ argocd_namespace }} -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+  register: argocd_install
+  changed_when: "'created' in argocd_install.stdout or 'configured' in argocd_install.stdout"
+
+- name: Copy Argo CD root Application manifest
+  ansible.builtin.template:
+    src: application.yaml.j2
+    dest: /tmp/argocd-root-app.yaml
+    mode: '0644'
+
+- name: Apply Argo CD Application to start GitOps synchronization
+  ansible.builtin.shell: |
+    /usr/local/bin/kubectl apply -n {{ argocd_namespace }} -f /tmp/argocd-root-app.yaml
+  register: argocd_app_apply
+  changed_when: "'created' in argocd_app_apply.stdout or 'configured' in argocd_app_apply.stdout"

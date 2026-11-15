@@ -1,0 +1,10 @@
+---
+timezone: Asia/Ho_Chi_Minh
+common_packages:
+  - git
+  - curl
+  - ca-certificates
+  - htop
+  - jq
+  - unzip
+  - vim
