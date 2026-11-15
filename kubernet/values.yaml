@@ -10,7 +10,7 @@ backend:
   replicaCount: 2
   image:
     repository: taitran05072006/backend
-    tag: latest # backend-tag
+    tag: 2e535d83c3abd21b07a02b5a7354452c8ba6c01e # backend-tag
     pullPolicy: Always
   service:
     type: ClusterIP
@@ -42,7 +42,7 @@ frontend:
   replicaCount: 2
   image:
     repository: taitran05072006/frontend
-    tag: latest # frontend-tag
+    tag: 2e535d83c3abd21b07a02b5a7354452c8ba6c01e # frontend-tag
     pullPolicy: Always
   service:
     type: ClusterIP
