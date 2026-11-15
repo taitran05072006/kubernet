@@ -1,7 +1,29 @@
 ---
+- name: Verify Tailscale interface exists on node
+  ansible.builtin.assert:
+    that:
+      - "'tailscale0' in ansible_interfaces"
+    fail_msg: "Interface 'tailscale0' not found on {{ inventory_hostname }} ({{ ansible_host }}). Please ensure Tailscale is active."
+    success_msg: "Tailscale interface 'tailscale0' is verified on {{ inventory_hostname }}."
+
+- name: Detect node Tailscale IP address
+  ansible.builtin.set_fact:
+    node_tailscale_ip: "{{ ansible_tailscale0.ipv4.address | default(ansible_host) }}"
+
+- name: Display detected Tailscale IP
+  ansible.builtin.debug:
+    msg: "Node {{ inventory_hostname }} is using Tailscale IP: {{ node_tailscale_ip }}"
+
+- name: Test network connectivity to K8s Server over Tailscale
+  ansible.builtin.command:
+    cmd: ping -c 2 -W 3 {{ k8s_server_host }}
+  changed_when: false
+  when: inventory_hostname in groups['worker_nodes']
+
 - name: Disable swap immediately
   ansible.builtin.command: swapoff -a
   changed_when: false
+  failed_when: false
 
 - name: Disable swap permanently in /etc/fstab
   ansible.builtin.replace:

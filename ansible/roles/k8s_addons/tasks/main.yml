@@ -8,9 +8,19 @@
   delay: 10
   changed_when: false
 
+- name: Download Nginx Ingress Controller manifest with retry
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/baremetal/deploy.yaml
+    dest: /tmp/ingress-nginx-deploy.yaml
+    mode: '0644'
+  register: ingress_download
+  until: ingress_download is not failed
+  retries: 5
+  delay: 5
+
 - name: Deploy Nginx Ingress Controller
   ansible.builtin.shell: |
-    /usr/local/bin/kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/baremetal/deploy.yaml
+    /usr/local/bin/kubectl apply -f /tmp/ingress-nginx-deploy.yaml
   register: ingress_deploy
   changed_when: "'created' in ingress_deploy.stdout or 'configured' in ingress_deploy.stdout"
 
@@ -20,9 +30,19 @@
   register: argocd_ns
   changed_when: "'created' in argocd_ns.stdout"
 
+- name: Download Argo CD manifests with retry
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    dest: /tmp/argocd-install.yaml
+    mode: '0644'
+  register: argocd_download
+  until: argocd_download is not failed
+  retries: 5
+  delay: 5
+
 - name: Deploy Argo CD manifests
   ansible.builtin.shell: |
-    /usr/local/bin/kubectl apply -n {{ argocd_namespace }} -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    /usr/local/bin/kubectl apply -n {{ argocd_namespace }} -f /tmp/argocd-install.yaml
   register: argocd_install
   changed_when: "'created' in argocd_install.stdout or 'configured' in argocd_install.stdout"
 
@@ -37,3 +57,34 @@
     /usr/local/bin/kubectl apply -n {{ argocd_namespace }} -f /tmp/argocd-root-app.yaml
   register: argocd_app_apply
   changed_when: "'created' in argocd_app_apply.stdout or 'configured' in argocd_app_apply.stdout"
+
+- name: Wait for Argo CD admin secret to be generated
+  ansible.builtin.shell: |
+    /usr/local/bin/kubectl -n {{ argocd_namespace }} get secret argocd-initial-admin-secret -o jsonpath="{.data.password}"
+  register: argocd_password_raw
+  until: argocd_password_raw.rc == 0 and argocd_password_raw.stdout != ""
+  retries: 20
+  delay: 6
+  changed_when: false
+  failed_when: false
+
+- name: Get Kubernetes nodes list
+  ansible.builtin.command: /usr/local/bin/kubectl get nodes -o wide
+  register: k8s_nodes_list
+  changed_when: false
+
+- name: Display Cluster Setup Summary Banner
+  ansible.builtin.debug:
+    msg:
+      - "===================================================================="
+      - " 3-NODE KUBERNETES CLUSTER IS READY! (MANAGED VIA TAILSCALE)"
+      - "===================================================================="
+      - "{{ k8s_nodes_list.stdout_lines }}"
+      - "--------------------------------------------------------------------"
+      - " ARGO CD WEB UI: https://{{ k8s_server_host }}:8080 (or port-forward)"
+      - " ARGO CD USER:   admin"
+      - " ARGO CD PASS:   {{ (argocd_password_raw.stdout | b64decode) if argocd_password_raw.stdout is defined else 'Pending - check later' }}"
+      - "--------------------------------------------------------------------"
+      - " Local kubeconfig generated on your Mac: ./kubeconfig"
+      - " You can now run on Mac: export KUBECONFIG=../kubeconfig && kubectl get nodes"
+      - "===================================================================="

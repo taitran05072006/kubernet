@@ -5,9 +5,16 @@
     dest: /tmp/install-k3s.sh
     mode: '0755'
 
-- name: Install K3s Server (Control Plane) with Traefik disabled
+- name: Install K3s Server (Control Plane) over Tailscale
   ansible.builtin.command:
-    cmd: /tmp/install-k3s.sh server --disable traefik --write-kubeconfig-mode 644
+    cmd: >
+      /tmp/install-k3s.sh server
+      --disable traefik
+      --write-kubeconfig-mode 644
+      --node-ip {{ node_tailscale_ip }}
+      --advertise-address {{ node_tailscale_ip }}
+      --tls-san {{ node_tailscale_ip }}
+      --flannel-iface tailscale0
   environment:
     INSTALL_K3S_VERSION: "{{ k3s_version }}"
   args:
@@ -34,7 +41,7 @@
   ansible.builtin.set_fact:
     k3s_cluster_token: "{{ k3s_token_raw.content | b64decode | trim }}"
 
-- name: Ensure .kube directory exists for user
+- name: Ensure .kube directory exists for user on server
   ansible.builtin.file:
     path: "{{ ansible_env.HOME | default('/home/' + ansible_user) }}/.kube"
     state: directory
@@ -42,7 +49,7 @@
     group: "{{ ansible_user }}"
     mode: '0755'
 
-- name: Copy kubeconfig to user's home directory
+- name: Copy kubeconfig to user's home directory on server
   ansible.builtin.copy:
     src: /etc/rancher/k3s/k3s.yaml
     dest: "{{ ansible_env.HOME | default('/home/' + ansible_user) }}/.kube/config"
@@ -50,3 +57,17 @@
     owner: "{{ ansible_user }}"
     group: "{{ ansible_user }}"
     mode: '0600'
+
+- name: Fetch kubeconfig to local Mac for direct kubectl control
+  ansible.builtin.fetch:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "{{ playbook_dir }}/../kubeconfig"
+    flat: yes
+
+- name: Update server endpoint in local Mac kubeconfig
+  ansible.builtin.replace:
+    path: "{{ playbook_dir }}/../kubeconfig"
+    regexp: 'https://127.0.0.1:6443'
+    replace: "https://{{ node_tailscale_ip }}:6443"
+  delegate_to: localhost
+  become: false

@@ -1,5 +1,4 @@
 ---
-- name: Reload host Nginx
-  ansible.builtin.systemd:
-    name: nginx
+- name: Reload UFW
+  community.general.ufw:
     state: reloaded

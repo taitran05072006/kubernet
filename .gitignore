@@ -10,3 +10,7 @@ demo/target
 .DS_Store
 
 taitran.txt
+
+# Local Kubeconfig
+kubeconfig
+*.kubeconfig

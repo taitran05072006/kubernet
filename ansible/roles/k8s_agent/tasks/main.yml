@@ -5,9 +5,12 @@
     dest: /tmp/install-k3s.sh
     mode: '0755'
 
-- name: Install and join K3s Agent (Worker Node) to Server
+- name: Install and join K3s Agent (Worker Node) to Server over Tailscale
   ansible.builtin.command:
-    cmd: /tmp/install-k3s.sh agent
+    cmd: >
+      /tmp/install-k3s.sh agent
+      --node-ip {{ node_tailscale_ip }}
+      --flannel-iface tailscale0
   environment:
     INSTALL_K3S_VERSION: "{{ k3s_version }}"
     K3S_URL: "https://{{ k8s_server_host }}:{{ k8s_server_api_port }}"

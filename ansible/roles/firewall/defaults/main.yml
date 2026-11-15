@@ -3,4 +3,5 @@ firewall_allowed_ports:
   - 22
   - 80
   - 443
-  
+  - 6443   # Kubernetes API Server
+  - 10250  # Kubelet metrics / logs

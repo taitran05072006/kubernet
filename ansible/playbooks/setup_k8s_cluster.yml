@@ -9,6 +9,7 @@
   become: true
   roles:
     - common
+    - firewall
     - k8s_common
 
 # 2. Khởi tạo máy Server (Control Plane)
