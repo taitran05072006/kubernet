@@ -33,6 +33,13 @@
     mode: '0600'
   failed_when: false
 
+- name: Ensure Traefik opens port 80 and 443 on ALL cluster nodes (HelmChartConfig hostPort)
+  ansible.builtin.copy:
+    src: traefik-config.yaml
+    dest: /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+    mode: '0600'
+  failed_when: false
+
 - name: Ensure K3s server service is started and enabled
   ansible.builtin.systemd:
     name: k3s
