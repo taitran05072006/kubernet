@@ -19,10 +19,24 @@
   args:
     creates: /usr/local/bin/k3s
 
+- name: Remove disable traefik from k8s service if present
+  ansible.builtin.shell: |
+    sed -i "/'--disable'/d" /etc/systemd/system/k3s.service || true
+    sed -i "/'traefik'/d" /etc/systemd/system/k3s.service || true
+    systemctl daemon-reload
+  changed_when: false
+
+- name: Ensure Traefik manifest exists in K3s manifests directory
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/k3s-io/k3s/v1.31.2%2Bk3s1/manifests/traefik.yaml
+    dest: /var/lib/rancher/k3s/server/manifests/traefik.yaml
+    mode: '0600'
+  failed_when: false
+
 - name: Ensure K3s server service is started and enabled
   ansible.builtin.systemd:
     name: k3s
-    state: started
+    state: restarted
     enabled: yes
 
 - name: Wait for K3s node-token to be generated
