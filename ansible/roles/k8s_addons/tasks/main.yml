@@ -8,14 +8,9 @@
   delay: 10
   changed_when: false
 
-- name: Wait for Traefik Ingress Controller to be ready
+- name: Ensure Traefik opens port 80 and 443 on ALL cluster nodes (DaemonSet)
   ansible.builtin.shell: |
-    /usr/local/bin/kubectl rollout status deployment/traefik -n kube-system --timeout=120s
-  register: traefik_check
-  until: traefik_check.rc == 0
-  retries: 10
-  delay: 10
-  changed_when: false
+    /usr/local/bin/kubectl patch svc traefik -n kube-system -p '{"spec":{"externalTrafficPolicy":"Cluster"}}' || true
   failed_when: false
 
 - name: Create namespace for Argo CD
