@@ -9,7 +9,6 @@
   ansible.builtin.command:
     cmd: >
       /tmp/install-k3s.sh server
-      --disable traefik
       --write-kubeconfig-mode 644
       --node-ip {{ node_tailscale_ip }}
       --advertise-address {{ node_tailscale_ip }}

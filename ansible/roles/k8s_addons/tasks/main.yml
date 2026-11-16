@@ -8,21 +8,15 @@
   delay: 10
   changed_when: false
 
-- name: Download Nginx Ingress Controller manifest with retry
-  ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.0/deploy/static/provider/baremetal/deploy.yaml
-    dest: /tmp/ingress-nginx-deploy.yaml
-    mode: '0644'
-  register: ingress_download
-  until: ingress_download is not failed
-  retries: 5
-  delay: 5
-
-- name: Deploy Nginx Ingress Controller
+- name: Wait for Traefik Ingress Controller to be ready
   ansible.builtin.shell: |
-    /usr/local/bin/kubectl apply -f /tmp/ingress-nginx-deploy.yaml
-  register: ingress_deploy
-  changed_when: "'created' in ingress_deploy.stdout or 'configured' in ingress_deploy.stdout"
+    /usr/local/bin/kubectl rollout status deployment/traefik -n kube-system --timeout=120s
+  register: traefik_check
+  until: traefik_check.rc == 0
+  retries: 10
+  delay: 10
+  changed_when: false
+  failed_when: false
 
 - name: Create namespace for Argo CD
   ansible.builtin.shell: |
@@ -42,7 +36,7 @@
 
 - name: Deploy Argo CD manifests
   ansible.builtin.shell: |
-    /usr/local/bin/kubectl apply -n {{ argocd_namespace }} -f /tmp/argocd-install.yaml
+    /usr/local/bin/kubectl apply -n {{ argocd_namespace }} --server-side --force-conflicts -f /tmp/argocd-install.yaml
   register: argocd_install
   changed_when: "'created' in argocd_install.stdout or 'configured' in argocd_install.stdout"
 
