@@ -3,7 +3,7 @@ backend:
   replicaCount: 2
   image:
     repository: taitran05072006/backend
-    tag: a8bd3c3e351773035818cd07d039046ffaf6bf97 # backend-tag
+    tag: 24e221da83728ab0547de25ba03469858766c360 # backend-tag
     pullPolicy: Always
   service:
     type: ClusterIP
@@ -32,7 +32,7 @@ frontend:
   replicaCount: 2
   image:
     repository: taitran05072006/frontend
-    tag: a8bd3c3e351773035818cd07d039046ffaf6bf97 # frontend-tag
+    tag: 24e221da83728ab0547de25ba03469858766c360 # frontend-tag
     pullPolicy: Always
   service:
     type: ClusterIP
