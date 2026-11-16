@@ -37,8 +37,6 @@ jobs:
 
       - name: Configure SSH and Run Ansible Cluster Setup
         env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
           SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
           SERVER_SSH_PASSPHRASE: ${{ secrets.SERVER_SSH_PASSPHRASE }}
           ANSIBLE_BECOME_PASSWORD: ${{ secrets.SERVER_SUDO_PASSWORD }}
@@ -50,8 +48,8 @@ jobs:
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/ubuntu
+          chmod 600 ~/.ssh/ubuntu
 
           eval "$(ssh-agent -s)"
 
@@ -66,7 +64,7 @@ jobs:
           export SSH_ASKPASS_REQUIRE=force
           export DISPLAY=:0
 
-          setsid -w ssh-add ~/.ssh/deploy_key </dev/null
+          setsid -w ssh-add ~/.ssh/ubuntu </dev/null
 
           ansible-playbook \
             -i inventory/hosts.yml \
