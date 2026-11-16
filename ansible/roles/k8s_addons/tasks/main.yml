@@ -8,9 +8,19 @@
   delay: 10
   changed_when: false
 
-- name: Ensure Traefik opens port 80 and 443 on ALL cluster nodes (DaemonSet)
+- name: Wait for Traefik to be created by K3s
   ansible.builtin.shell: |
-    /usr/local/bin/kubectl patch svc traefik -n kube-system -p '{"spec":{"externalTrafficPolicy":"Cluster"}}' || true
+    /usr/local/bin/kubectl get svc traefik -n kube-system
+  register: traefik_svc
+  until: traefik_svc.rc == 0
+  retries: 30
+  delay: 5
+  changed_when: false
+  failed_when: false
+
+- name: Ensure Traefik ServiceLB runs on ALL cluster nodes including Control Plane
+  ansible.builtin.shell: |
+    /usr/local/bin/kubectl -n kube-system patch daemonset svclb-traefik --type='json' -p='[{"op":"add","path":"/spec/template/spec/tolerations/-","value":{"operator":"Exists"}}]' || true
   failed_when: false
 
 - name: Create namespace for Argo CD

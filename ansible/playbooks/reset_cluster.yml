@@ -1,0 +1,57 @@
+---
+# ==============================================================================
+# PLAYBOOK: RESET / CLEANUP KUBERNETES CLUSTER (ALL 3 NODES)
+# ==============================================================================
+
+- name: Uninstall K3s Agents on Worker Nodes
+  hosts: worker_nodes
+  become: true
+  tasks:
+    - name: Run K3s agent uninstall script if present
+      ansible.builtin.command: /usr/local/bin/k3s-agent-uninstall.sh
+      args:
+        removes: /usr/local/bin/k3s-agent-uninstall.sh
+      failed_when: false
+
+    - name: Clean up remaining K3s directories on agent nodes
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/rancher
+        - /var/lib/rancher
+        - /run/k3s
+        - /run/flannel
+
+- name: Uninstall K3s Server on Control Plane
+  hosts: control_plane
+  become: true
+  tasks:
+    - name: Run K3s server uninstall script if present
+      ansible.builtin.command: /usr/local/bin/k3s-uninstall.sh
+      args:
+        removes: /usr/local/bin/k3s-uninstall.sh
+      failed_when: false
+
+    - name: Clean up remaining K3s directories and manifests on control plane
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/rancher
+        - /var/lib/rancher
+        - /run/k3s
+        - /run/flannel
+        - /tmp/argocd-install.yaml
+        - /tmp/argocd-root-app.yaml
+
+- name: Remove local kubeconfig on Mac
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+  tasks:
+    - name: Delete local kubeconfig
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../kubeconfig"
+        state: absent
